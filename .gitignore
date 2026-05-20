@@ -1,0 +1,63 @@
+# =========================
+# ENV / VENV
+# =========================
+venv/
+backend/venv/
+
+# =========================
+# PYTHON CACHE
+# =========================
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pypy_cache/
+
+# =========================
+# NODE / FRONTEND
+# =========================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+
+# =========================
+# VITE / LOGS
+# =========================
+.vite/
+.vite-temp/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# ENV FILES
+# =========================
+.env
+.env.local
+.env.*.local
+
+# =========================
+# DATABASE FILES
+# =========================
+*.db
+*.sqlite3
+
+# =========================
+# UPLOADS
+# =========================
+data/product_img/*
+!data/product_img/.gitkeep
+
+# =========================
+# IDE / OS FILES
+# =========================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+
+Desktop.ini
+Thumbs.db
+.DS_Store

@@ -1,0 +1,12 @@
+{
+  "name": "ecommerce-project",
+  "version": "1.0.0",
+  "scripts": {
+    "backend": "cd backend && venv\\Scripts\\python -m uvicorn main:app --reload",    
+    "frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+  },
+  "dependencies": {
+    "concurrently": "^9.0.1"
+  }
+}
