@@ -67,12 +67,11 @@ function Signup() {
           <h1 style={styles.logo}>EasyCart</h1>
 
           <p style={styles.tagline}>
-            Shop smart <br />
-            Live better
+            Buy Better<br />
+            Sell Smarter
           </p>
 
           <p style={styles.description}>
-            Buy smarter. Sell faster. <br />
             Experience modern online shopping.
           </p>
 

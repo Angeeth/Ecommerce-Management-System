@@ -71,8 +71,8 @@ function LoginPage() {
           </h1>
 
           <p style={styles.tagline}>
-            Shop smart <br />
-            Live better
+            Buy Better<br />
+            Sell Smarter
           </p>
 
           <p style={styles.description}>

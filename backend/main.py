@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
 from routes.auth import router as auth_router
+from routes.product import router as product_router
 
 app = FastAPI()
 
@@ -13,10 +16,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# routes
+# ROUTES
 app.include_router(auth_router)
+app.include_router(product_router)
 
-
-@app.get("/")
-def home():
-    return {"message": "Backend Running"}
+# STATIC IMAGE FOLDER
+app.mount(
+    "/product_img",
+    StaticFiles(directory="../data/product_img"),
+    name="product_img"
+)
