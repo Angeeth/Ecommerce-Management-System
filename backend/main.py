@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from routes.auth import router as auth_router
 from routes.product import router as product_router
+from routes.cart import router as cart_router
 
 app = FastAPI()
 
@@ -19,6 +20,7 @@ app.add_middleware(
 # ROUTES
 app.include_router(auth_router)
 app.include_router(product_router)
+app.include_router(cart_router)
 
 # STATIC IMAGE FOLDER
 app.mount(

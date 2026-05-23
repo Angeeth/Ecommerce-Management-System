@@ -7,8 +7,11 @@ function ProductListingPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // FETCH PRODUCTS 
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  // FETCH PRODUCTS
   useEffect(() => {
 
     let url = "http://127.0.0.1:8000/products";
@@ -19,52 +22,146 @@ function ProductListingPage() {
 
     axios.get(url)
       .then((response) => {
+
         setProducts(response.data || []);
+
       })
       .catch((error) => {
+
         console.log("API Error:", error);
+
         setProducts([]);
+
       });
 
   }, [category]);
 
   // SEARCH FILTER
   let filteredProducts = products.filter((product) =>
-    product?.name?.toLowerCase().includes(search.toLowerCase())
+    product?.name?.toLowerCase().includes(
+      search.toLowerCase()
+    )
   );
 
   // SORT
   if (sort === "low") {
-    filteredProducts.sort((a, b) => a.price - b.price);
+    filteredProducts.sort(
+      (a, b) => a.price - b.price
+    );
   }
 
   if (sort === "high") {
-    filteredProducts.sort((a, b) => b.price - a.price);
+    filteredProducts.sort(
+      (a, b) => b.price - a.price
+    );
   }
 
   return (
+
     <div style={styles.page}>
+
+      {/* SIDEBAR */}
+      {sidebarOpen && (
+
+        <div style={styles.sidebar}>
+
+          <button
+              style={styles.closeSidebarBtn}
+              onClick={() => setSidebarOpen(false)}
+            >
+              ←
+          </button>
+
+          <h2 style={styles.sidebarTitle}>
+            My Account
+          </h2>
+
+          <button
+            style={styles.sidebarBtn}
+            onClick={() =>
+              window.location.href =
+                "/customer-dashboard"
+            }
+          >
+            Profile
+          </button>
+
+          <button
+            style={styles.sidebarBtn}
+            onClick={() => {
+
+              localStorage.removeItem("user");
+
+              window.location.href = "/login";
+
+            }}
+          >
+            Logout
+          </button>
+
+        </div>
+
+      )}
 
       {/* HEADER */}
       <div style={styles.header}>
+
         <div>
-          <h1 style={styles.logo}>EasyCart</h1>
-          <p style={styles.tagline}>Buy Better. Sell Smarter.</p>
+          <h1 style={styles.logo}>
+            EasyCart
+          </h1>
+
+          <p style={styles.tagline}>
+            Buy Better. Sell Smarter.
+          </p>
         </div>
 
-        <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
-          <button style={styles.cartButton}>Cart</button>
+        <div style={styles.headerButtons}>
 
+          {/* CART */}
           <button
-            style={{
-              ...styles.cartButton,
-              background: "linear-gradient(135deg, #5e0017, #8b0026)"
-            }}
-            onClick={() => window.location.href = "/login"}
+            style={styles.cartButton}
+            onClick={() =>
+              window.location.href = "/cart"
+            }
           >
-            Login
+            Cart
           </button>
+
+          {/* LOGIN */}
+          {!user && (
+
+            <button
+              style={{
+                ...styles.cartButton,
+                background:
+                  "linear-gradient(135deg, #5e0017, #8b0026)"
+              }}
+              onClick={() =>
+                window.location.href = "/login"
+              }
+            >
+              Login
+            </button>
+
+          )}
+
+          {/* MENU */}
+          {user && (
+
+            <button
+              style={styles.menuButton}
+              onClick={() =>
+                setSidebarOpen(!sidebarOpen)
+              }
+            >
+              ☰
+            </button>
+
+          )}
+
         </div>
+
       </div>
 
       {/* FILTER SECTION */}
@@ -75,35 +172,77 @@ function ProductListingPage() {
           placeholder="Search products..."
           style={styles.searchInput}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) =>
+            setSearch(e.target.value)
+          }
         />
 
-        {/* CATEGORY DROPDOWN */}
+        {/* CATEGORY */}
         <select
           style={styles.select}
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e) =>
+            setCategory(e.target.value)
+          }
         >
-          <option value="All">All Categories</option>
-          <option value="1">Clothing</option>
-          <option value="2">Footwear</option>
-          <option value="3">Electronics</option>
-          <option value="4">Furniture</option>
-          <option value="5">Sports</option>
-          <option value="6">Accessories</option>
-          <option value="7">Home Appliances</option>
-          <option value="8">Bags</option>
+          <option value="All">
+            All Categories
+          </option>
+
+          <option value="1">
+            Clothing
+          </option>
+
+          <option value="2">
+            Footwear
+          </option>
+
+          <option value="3">
+            Electronics
+          </option>
+
+          <option value="4">
+            Furniture
+          </option>
+
+          <option value="5">
+            Sports
+          </option>
+
+          <option value="6">
+            Accessories
+          </option>
+
+          <option value="7">
+            Home Appliances
+          </option>
+
+          <option value="8">
+            Bags
+          </option>
+
         </select>
 
         {/* SORT */}
         <select
           style={styles.select}
           value={sort}
-          onChange={(e) => setSort(e.target.value)}
+          onChange={(e) =>
+            setSort(e.target.value)
+          }
         >
-          <option value="">Sort By</option>
-          <option value="low">Price: Low to High</option>
-          <option value="high">Price: High to Low</option>
+          <option value="">
+            Sort By
+          </option>
+
+          <option value="low">
+            Price: Low to High
+          </option>
+
+          <option value="high">
+            Price: High to Low
+          </option>
+
         </select>
 
       </div>
@@ -112,10 +251,14 @@ function ProductListingPage() {
       <div style={styles.grid}>
 
         {filteredProducts.map((product) => (
+
           <div
             key={product.product_id}
             style={styles.card}
-            onClick={() => window.location.href = `/product/${product.product_id}`}
+            onClick={() =>
+              window.location.href =
+                `/product/${product.product_id}`
+            }
           >
 
             <img
@@ -127,7 +270,7 @@ function ProductListingPage() {
             <div style={styles.cardContent}>
 
               <p style={styles.category}>
-                Category ID: {product.category_id}
+                Stock: {product.stock_quantity}
               </p>
 
               <h2 style={styles.productName}>
@@ -135,17 +278,29 @@ function ProductListingPage() {
               </h2>
 
               <div style={styles.row}>
-                <h3 style={styles.price}>₹ {product.price}</h3>
-                <span style={styles.rating}>⭐ 4.5</span>
+
+                <h3 style={styles.price}>
+                  ₹ {product.price}
+                </h3>
+
+              <span style={styles.rating}>
+                ⭐ {product.average_rating || 0}
+                {" "}
+                ({product.total_reviews || 0})
+              </span>
+
               </div>
 
-              <button style={styles.buyButton}>
+              <button
+                style={styles.buyButton}
+              >
                 Add To Cart
               </button>
 
             </div>
 
           </div>
+
         ))}
 
       </div>
@@ -159,15 +314,23 @@ const styles = {
   page: {
     minHeight: "100vh",
     padding: "40px",
-    background: "linear-gradient(135deg, #1f0008, #4d0014, #7a001f)",
+    background:
+      "linear-gradient(135deg, #1f0008, #4d0014, #7a001f)",
     fontFamily: "Poppins, sans-serif",
   },
 
+  // HEADER
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "40px",
+  },
+
+  headerButtons: {
+    display: "flex",
+    gap: "15px",
+    alignItems: "center",
   },
 
   logo: {
@@ -181,17 +344,74 @@ const styles = {
     marginTop: "8px",
   },
 
+  // BUTTONS
   cartButton: {
     padding: "14px 30px",
     borderRadius: "15px",
     border: "none",
-    background: "linear-gradient(135deg, #8b0026, #b3003c)",
+    background:
+      "linear-gradient(135deg, #8b0026, #b3003c)",
     color: "white",
     fontSize: "16px",
     cursor: "pointer",
     fontWeight: "600",
   },
 
+  menuButton: {
+    width: "55px",
+    height: "55px",
+    borderRadius: "15px",
+    border: "none",
+    background:
+      "linear-gradient(135deg, #8b0026, #b3003c)",
+    color: "white",
+    fontSize: "24px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
+
+  // SIDEBAR
+  sidebar: {
+    position: "fixed",
+    top: "0",
+    right: "0",
+    width: "300px",
+    height: "100vh",
+    background:
+      "rgba(43,0,11,0.88)",
+    backdropFilter: "blur(18px)",
+    padding: "30px",
+    zIndex: 1000,
+    boxShadow:
+      "-10px 0 40px rgba(0,0,0,0.4)",
+    display: "flex",
+    flexDirection: "column",
+    gap: "20px",
+    borderLeft:
+      "1px solid rgba(255,255,255,0.08)",
+  },
+
+  sidebarTitle: {
+    color: "white",
+    fontSize: "32px",
+    marginBottom: "15px",
+    fontWeight: "700",
+  },
+
+  sidebarBtn: {
+    padding: "16px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "16px",
+    background:
+      "rgba(255,255,255,0.08)",
+    backdropFilter: "blur(12px)",
+    color: "white",
+    fontSize: "16px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+
+  // FILTERS
   filterSection: {
     display: "flex",
     gap: "20px",
@@ -204,8 +424,10 @@ const styles = {
     minWidth: "250px",
     padding: "16px",
     borderRadius: "15px",
-    border: "1px solid rgba(255,255,255,0.15)",
-    background: "rgba(255,255,255,0.08)",
+    border:
+      "1px solid rgba(255,255,255,0.15)",
+    background:
+      "rgba(255,255,255,0.08)",
     color: "white",
     outline: "none",
     fontSize: "15px",
@@ -214,27 +436,34 @@ const styles = {
   select: {
     padding: "16px",
     borderRadius: "15px",
-    border: "1px solid rgba(255,255,255,0.25)",
-    background: "rgba(255,255,255,0.95)",
+    border:
+      "1px solid rgba(255,255,255,0.25)",
+    background:
+      "rgba(255,255,255,0.95)",
     color: "#1f0008",
     fontSize: "15px",
     cursor: "pointer",
   },
 
+  // GRID
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(300px, 1fr))",
     gap: "30px",
   },
 
   card: {
     borderRadius: "25px",
     overflow: "hidden",
-    background: "rgba(255,255,255,0.08)",
+    background:
+      "rgba(255,255,255,0.08)",
     backdropFilter: "blur(20px)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
-    cursor: "pointer"
+    border:
+      "1px solid rgba(255,255,255,0.1)",
+    boxShadow:
+      "0 20px 50px rgba(0,0,0,0.3)",
+    cursor: "pointer",
   },
 
   image: {
@@ -275,12 +504,28 @@ const styles = {
     fontWeight: "600",
   },
 
+  closeSidebarBtn: {
+    width: "50px",
+    height: "50px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background:
+      "rgba(255,255,255,0.08)",
+    backdropFilter: "blur(12px)",
+    color: "white",
+    fontSize: "24px",
+    fontWeight: "bold",
+    cursor: "pointer",
+    marginBottom: "10px",
+  },
+
   buyButton: {
     width: "100%",
     padding: "15px",
     border: "none",
     borderRadius: "15px",
-    background: "linear-gradient(135deg, #8b0026, #b3003c)",
+    background:
+      "linear-gradient(135deg, #8b0026, #b3003c)",
     color: "white",
     fontSize: "16px",
     fontWeight: "600",

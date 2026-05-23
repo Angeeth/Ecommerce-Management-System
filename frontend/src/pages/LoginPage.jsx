@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 function LoginPage() {
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     document.body.style.margin = "0";
@@ -35,9 +37,33 @@ function LoginPage() {
         loginData
       );
 
+      // STORE USER DATA
+      localStorage.setItem(
+        "user",
+        JSON.stringify(response.data.user)
+      );
+
       alert(response.data.message);
 
       console.log(response.data);
+
+      // RETURN TO PREVIOUS PAGE
+      const redirectPage =
+        localStorage.getItem("redirectAfterLogin");
+
+      if (redirectPage) {
+
+        localStorage.removeItem(
+          "redirectAfterLogin"
+        );
+
+        navigate(redirectPage);
+
+      } else {
+
+        navigate("/products");
+
+      }
 
     } catch (error) {
 
