@@ -129,12 +129,14 @@ function ProductDetailsPage() {
   // BUY NOW
   const handleBuyNow = () => {
 
-    const user = checkLogin();
+  const user = checkLogin();
 
-    if (!user) return;
+  if (!user) return;
 
-    alert("Proceeding To Checkout");
-  };
+  // go to checkout page with product id + quantity
+  window.location.href =
+    `/checkout?product_id=${product.product_id}&qty=${qty}`;
+};
 
   // NEXT IMAGE
   const nextImage = () => {

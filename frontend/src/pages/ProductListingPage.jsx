@@ -60,48 +60,77 @@ function ProductListingPage() {
 
     <div style={styles.page}>
 
-      {/* SIDEBAR */}
-      {sidebarOpen && (
+    {/* SIDEBAR */}
+    {sidebarOpen && (
 
-        <div style={styles.sidebar}>
+      <div style={styles.sidebar}>
 
-          <button
-              style={styles.closeSidebarBtn}
-              onClick={() => setSidebarOpen(false)}
-            >
-              ←
-          </button>
+        <button
+          style={styles.closeSidebarBtn}
+          onClick={() => setSidebarOpen(false)}
+        >
+          ←
+        </button>
 
-          <h2 style={styles.sidebarTitle}>
-            My Account
-          </h2>
+        {/* USER INFO */}
+        <h2 style={styles.sidebarTitle}>
+          👤 {user?.username || "Guest User"}
+        </h2>
 
-          <button
-            style={styles.sidebarBtn}
-            onClick={() =>
-              window.location.href =
-                "/customer-dashboard"
-            }
-          >
-            Profile
-          </button>
+        <p style={{ color: "#f3c7d3", marginTop: "-10px" }}>
+          {user?.email}
+        </p>
 
-          <button
-            style={styles.sidebarBtn}
-            onClick={() => {
+        {/* NAV BUTTONS */}
+        <button
+          style={styles.sidebarBtn}
+          onClick={() =>
+            window.location.href = "/cart"
+          }
+        >
+          🛒 Cart
+        </button>
 
-              localStorage.removeItem("user");
+        <button
+          style={styles.sidebarBtn}
+          onClick={() =>
+            window.location.href = "/orders"
+          }
+        >
+          📦 Orders
+        </button>
 
-              window.location.href = "/login";
+        <button
+          style={styles.sidebarBtn}
+          onClick={() =>
+            window.location.href = "/wishlist"
+          }
+        >
+          ❤️ Wishlist
+        </button>
 
-            }}
-          >
-            Logout
-          </button>
+        {/* LOGOUT */}
+        <button
+          style={{
+            ...styles.sidebarBtn,
+            background: "rgba(255, 0, 60, 0.15)",
+            border: "1px solid rgba(255, 0, 60, 0.3)"
+          }}
+          onClick={() => {
 
-        </div>
+            localStorage.removeItem("user");
 
-      )}
+            window.location.href = "/login";
+
+          }}
+        >
+          Logout
+        </button>
+
+      </div>
+
+    )}
+
 
       {/* HEADER */}
       <div style={styles.header}>
@@ -117,16 +146,6 @@ function ProductListingPage() {
         </div>
 
         <div style={styles.headerButtons}>
-
-          {/* CART */}
-          <button
-            style={styles.cartButton}
-            onClick={() =>
-              window.location.href = "/cart"
-            }
-          >
-            Cart
-          </button>
 
           {/* LOGIN */}
           {!user && (
