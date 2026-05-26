@@ -5,12 +5,9 @@ import { useSearchParams } from "react-router-dom";
 function CheckoutPage() {
   const [searchParams] = useSearchParams();
 
-  const productId = searchParams.get("product_id");
-  const quantity = Number(searchParams.get("qty")) || 1;
-
   const user = JSON.parse(localStorage.getItem("user"));
 
-  const [product, setProduct] = useState(null);
+  const [checkoutItems, setCheckoutItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // CUSTOMER DETAILS
@@ -31,19 +28,33 @@ function CheckoutPage() {
 
   const [dataLoaded, setDataLoaded] = useState(false);
 
-  // FETCH PRODUCT
-  useEffect(() => {
-    if (!productId) return;
+  const buyNowProductId = searchParams.get("product_id");
+  const buyNowQty = Number(searchParams.get("qty")) || 1;
+  const isFromCart = searchParams.get("from") === "cart";
 
-    axios
-      .get(`http://127.0.0.1:8000/products/${productId}`)
-      .then((res) => {
-        setProduct(res.data);
-      })
-      .catch((err) => {
-        console.log("PRODUCT ERROR:", err);
-      });
-  }, [productId]);
+  useEffect(() => {
+    if (buyNowProductId) {
+      axios
+        .get(`http://127.0.0.1:8000/products/${buyNowProductId}`)
+        .then((res) => {
+          setCheckoutItems([{
+            product_id: res.data.product_id,
+            name: res.data.name,
+            price: res.data.price,
+            quantity: buyNowQty,
+            image_url: res.data.image_url || (res.data.images && res.data.images[0])
+          }]);
+        })
+        .catch((err) => console.log("PRODUCT FETCH ERROR:", err));
+    } else if (isFromCart && user?.user_id) {
+      axios
+        .get(`http://127.0.0.1:8000/cart/${user.user_id}`)
+        .then((res) => {
+          setCheckoutItems(res.data || []);
+        })
+        .catch((err) => console.log("CART FETCH ERROR:", err));
+    }
+  }, [buyNowProductId, buyNowQty, isFromCart, user?.user_id]);
 
   // FETCH USER + ADDRESS
   useEffect(() => {
@@ -53,7 +64,6 @@ function CheckoutPage() {
       .get(`http://127.0.0.1:8000/checkout-user/${user.user_id}`)
       .then((res) => {
         console.log("CHECKOUT USER:", res.data);
-
         const data = res.data;
 
         if (data.user) {
@@ -77,95 +87,96 @@ function CheckoutPage() {
       });
   }, [user, dataLoaded]);
 
-  if (!product) {
+  if (checkoutItems.length === 0) {
     return (
       <div style={styles.page}>
-        <h1 style={{ color: "white" }}>Loading Product...</h1>
+        <h1 style={{ color: "white" }}>Loading Checkout Items...</h1>
       </div>
     );
   }
 
-  const subtotal = Number(product.price || 0) * quantity;
+  // PRICING CALCULATIONS
+  const subtotal = checkoutItems.reduce((sum, item) => sum + Number(item.price || 0) * item.quantity, 0);
   const shipping = 99;
   const tax = Math.round(subtotal * 0.05);
   const total = subtotal + shipping + tax;
 
-  let productImage = "";
-
-  if (product.images && product.images.length > 0) {
-    productImage = `http://127.0.0.1:8000/product_img/${product.images[0]}`;
-  } else if (product.image_url) {
-    productImage = `http://127.0.0.1:8000/product_img/${product.image_url}`;
-  } else {
-    productImage = "https://via.placeholder.com/110";
-  }
-
-const normalizePaymentMethod = (method) => {
-  if (!method) return "UPI";
-  const cleanMethod = method.trim().toLowerCase();
-  
-  if (cleanMethod === "upi") return "UPI";
-  if (cleanMethod === "credit card" || cleanMethod === "debit card" || cleanMethod === "card") return "CARD";
-  if (cleanMethod === "net banking") return "NET_BANKING";
-  if (cleanMethod === "cash on delivery" || cleanMethod === "cod") return "COD";
-  
-  return "UPI"; 
-};
-
-const handlePlaceOrder = async () => {
-  if (!fullName || !mobile || !email || !address || !city || !state || !pincode) {
-    alert("Please fill all fields");
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    const addrRes = await axios.post("http://127.0.0.1:8000/save-address", {
-      user_id: user.user_id,
-      address_line: address,
-      city,
-      state,
-      postal_code: pincode,
-      country: "India",
-      address_type: addressType
-    });
-
-    const activeAddressId = addrRes.data.address_id;
+  const normalizePaymentMethod = (method) => {
+    if (!method) return "UPI";
+    const cleanMethod = method.trim().toLowerCase();
     
-    if (!activeAddressId) {
-      alert("Failed to process shipping address. Please try again.");
-      setLoading(false);
+    if (cleanMethod === "upi") return "UPI";
+    if (cleanMethod === "credit card" || cleanMethod === "debit card" || cleanMethod === "card") return "CARD";
+    if (cleanMethod === "net banking") return "NET_BANKING";
+    if (cleanMethod === "cash on delivery" || cleanMethod === "cod") return "COD";
+    
+    return "UPI"; 
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!fullName || !mobile || !email || !address || !city || !state || !pincode) {
+      alert("Please fill all fields");
       return;
     }
 
-    setAddressId(activeAddressId);
+    try {
+      setLoading(true);
 
-    await axios.put(`http://127.0.0.1:8000/update-user/${user.user_id}`, {
-      username: fullName,
-      phone: mobile,
-    });
+      const addrRes = await axios.post("http://127.0.0.1:8000/save-address", {
+        user_id: user.user_id,
+        address_line: address,
+        city,
+        state,
+        postal_code: pincode,
+        country: "India",
+        address_type: addressType
+      });
 
-    const orderResponse = await axios.post("http://127.0.0.1:8000/create-order", {
-      user_id: user.user_id,
-      address_id: activeAddressId, 
-      product_id: product.product_id,
-      quantity: quantity,
-      payment_method: normalizePaymentMethod(paymentMethod), 
-    });
+      const activeAddressId = addrRes.data.address_id;
+      
+      if (!activeAddressId) {
+        alert("Failed to process shipping address. Please try again.");
+        setLoading(false);
+        return;
+      }
 
-    console.log("ORDER RESPONSE:", orderResponse.data);
-    alert("Order Placed Successfully 🎉");
+      setAddressId(activeAddressId);
+
+      await axios.put(`http://127.0.0.1:8000/update-user/${user.user_id}`, {
+        username: fullName,
+        phone: mobile,
+      });
+
+      const orderResponse = await axios.post("http://127.0.0.1:8000/create-order", {
+        user_id: user.user_id,
+        address_id: activeAddressId, 
+        payment_method: normalizePaymentMethod(paymentMethod), 
+        items: checkoutItems.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity
+        }))
+      });
+
+      console.log("ORDER RESPONSE:", orderResponse.data);
+      alert("Order Placed Successfully 🎉");
+      setLoading(false);
+      window.location.href = "/products";
+
+    }  catch (error) {
+    console.error("FULL ERROR OBJECT:", error.response?.data);
+    setLoading(true); 
+
+    if (Array.isArray(error.response?.data?.detail)) {
+      const errorMessages = error.response.data.detail
+        .map(err => `${err.loc.join('.')} - ${err.msg}`)
+        .join("\n");
+      alert(`Validation Failure:\n${errorMessages}`);
+    } else {
+      const errorDetails = error.response?.data?.detail || error.message || "Checkout Failed";
+      alert(`Checkout Failed: ${errorDetails}`);
+    }
     setLoading(false);
-    window.location.href = "/products";
-
-  } catch (error) {
-    console.error("CHECKOUT ERROR:", error.response?.data || error.message);
-    setLoading(false);
-    const errorDetails = error.response?.data?.detail || "Checkout Failed";
-    alert(`Checkout Failed: ${errorDetails}`);
-  }
-};
+  }};
 
   return (
     <div style={styles.page}>
@@ -250,14 +261,13 @@ const handlePlaceOrder = async () => {
             />
 
             <select
-                value={addressType}
-                onChange={(e) => setAddressType(e.target.value)}
-                style={styles.addressTypeSelect}
-              >
-                <option value="Home">Home</option>
-                <option value="Work">Work</option>
+              value={addressType}
+              onChange={(e) => setAddressType(e.target.value)}
+              style={styles.addressTypeSelect}
+            >
+              <option value="Home">Home</option>
+              <option value="Work">Work</option>
             </select>
-
           </div>
 
           {/* PAYMENT */}
@@ -293,16 +303,23 @@ const handlePlaceOrder = async () => {
           <div style={styles.summaryCard}>
             <h2 style={styles.sectionTitle}>🧾 Order Summary</h2>
 
-            <div style={styles.productBox}>
-              <img src={productImage} alt={product.name} style={styles.productImage} />
+            {checkoutItems.map((item) => {
+              const imgUrl = item.image_url?.startsWith("http") 
+                ? item.image_url 
+                : `http://127.0.0.1:8000/product_img/${item.image_url || "placeholder.png"}`;
 
-              <div>
-                <h3 style={styles.productName}>{product.name}</h3>
-                <p style={styles.productPrice}>₹ {product.price}</p>
-                <p style={styles.qty}>Quantity: {quantity}</p>
-              </div>
-            </div>
-
+              return (
+                <div key={item.product_id} style={styles.productBox}>
+                  <img src={imgUrl} alt={item.name} style={styles.productImage} />
+                  <div>
+                    <h3 style={styles.productName}>{item.name}</h3>
+                    <p style={styles.productPrice}>₹ {item.price}</p>
+                    <p style={styles.qty}>Quantity: {item.quantity}</p>
+                  </div>
+                </div>
+              );
+            })}
+            
             <div style={styles.billSection}>
               <div style={styles.billRow}>
                 <span>Subtotal</span>
@@ -346,79 +363,73 @@ const styles = {
   page: {
     minHeight: "100vh",
     padding: "35px",
-    background:
-      "linear-gradient(135deg, #1f0008, #4d0014, #7a001f)",
+    background: "linear-gradient(135deg, #1f0008, #4d0014, #7a001f)",
     fontFamily: "Poppins, sans-serif",
   },
 
-  header: {
-    marginBottom: "35px",
+  header: { marginBottom: "35px" },
+
+  logo: { 
+    color: "white", 
+    fontSize: "42px" 
   },
 
-  logo: {
-    color: "white",
-    fontSize: "42px",
+  container: { 
+    display: "flex", 
+    gap: "30px", 
+    flexWrap: "wrap" 
   },
 
-  container: {
-    display: "flex",
-    gap: "30px",
-    flexWrap: "wrap",
+  leftSection: { 
+    flex: 2, 
+    minWidth: "320px" 
   },
 
-  leftSection: {
-    flex: 2,
-    minWidth: "320px",
+  rightSection: { 
+    flex: 1, 
+    minWidth: "320px" 
   },
-
-  rightSection: {
-    flex: 1,
-    minWidth: "320px",
-  },
-
+  
   card: {
     background: "rgba(255,255,255,0.08)",
     padding: "25px",
     borderRadius: "22px",
     marginBottom: "25px",
     backdropFilter: "blur(14px)",
-    border:
-      "1px solid rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.08)",
   },
 
-  summaryCard: {
-    background: "rgba(255,255,255,0.08)",
-    padding: "25px",
-    borderRadius: "22px",
+  summaryCard: { 
+    background: "rgba(255,255,255,0.08)", 
+    padding: "25px", 
+    borderRadius: "22px" 
   },
 
-  titleRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "15px",
+  titleRow: { 
+    display: "flex", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    marginBottom: "15px" 
   },
 
-  editText: {
-    color: "#ffcc70",
-    fontSize: "14px",
-    fontWeight: "600",
+  editText: { 
+    color: "#ffcc70", 
+    fontSize: "14px", 
+    fontWeight: "600" 
   },
 
-  sectionTitle: {
-    color: "white",
-    fontSize: "26px",
-    marginBottom: "20px",
+  sectionTitle: { 
+    color: "white", 
+    fontSize: "26px", 
+    marginBottom: "20px" 
   },
 
   input: {
     width: "100%",
     padding: "16px",
     borderRadius: "14px",
-    border:
-      "1px solid rgba(255,255,255,0.1)",
-    background:
-      "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.08)",
     color: "white",
     marginBottom: "15px",
     outline: "none",
@@ -431,10 +442,8 @@ const styles = {
     height: "120px",
     padding: "16px",
     borderRadius: "14px",
-    border:
-      "1px solid rgba(255,255,255,0.1)",
-    background:
-      "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.08)",
     color: "white",
     marginBottom: "15px",
     outline: "none",
@@ -443,80 +452,75 @@ const styles = {
     boxSizing: "border-box",
   },
 
-  row: {
-    display: "flex",
-    gap: "15px",
+  row: { 
+    display: "flex", 
+    gap: "15px" 
   },
 
-  paymentOptions: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "15px",
+  paymentOptions: { 
+    display: "flex", 
+    flexWrap: "wrap", 
+    gap: "15px" 
   },
 
-  paymentCard: {
-    padding: "15px 20px",
-    borderRadius: "14px",
-    background:
-      "rgba(255,255,255,0.08)",
-    color: "white",
-    cursor: "pointer",
-    fontWeight: "600",
+  paymentCard: { 
+    padding: "15px 20px", 
+    borderRadius: "14px", 
+    background: "rgba(255,255,255,0.08)", 
+    color: "white", 
+    cursor: "pointer", 
+    fontWeight: "600" 
   },
 
-  secureText: {
-    color: "#ffcc70",
-    marginTop: "20px",
-    fontWeight: "600",
+  secureText: { 
+    color: "#ffcc70", 
+    marginTop: "20px", 
+    fontWeight: "600" 
   },
 
-  productBox: {
-    display: "flex",
-    gap: "18px",
-    marginBottom: "25px",
-    alignItems: "center",
+  productBox: { 
+    display: "flex", 
+    gap: "18px", 
+    marginBottom: "25px", 
+    alignItems: "center" 
   },
 
-  productImage: {
-    width: "110px",
-    height: "110px",
-    objectFit: "cover",
-    borderRadius: "15px",
+  productImage: { 
+    width: "110px", 
+    height: "110px", 
+    objectFit: "cover", 
+    borderRadius: "15px" 
   },
 
-  productName: {
-    color: "white",
-    marginBottom: "10px",
+  productName: { 
+    color: "white", 
+    marginBottom: "10px" 
   },
 
-  productPrice: {
-    color: "#ffcc70",
-    fontSize: "20px",
-    fontWeight: "700",
+  productPrice: { 
+    color: "#ffcc70", 
+    fontSize: "20px", 
+    fontWeight: "700" 
   },
 
-  qty: {
-    color: "#ddd",
+  qty: { color: "#ddd" },
+
+  billSection: { marginTop: "25px" },
+
+  billRow: { 
+    display: "flex", 
+    justifyContent: "space-between", 
+    marginBottom: "14px", 
+    color: "#ddd" 
   },
 
-  billSection: {
-    marginTop: "25px",
-  },
-
-  billRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: "14px",
-    color: "#ddd",
-  },
-
-  totalRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginTop: "20px",
-    fontSize: "22px",
-    fontWeight: "700",
-    color: "white",
+  totalRow: { 
+    display: "flex", 
+    justifyContent: "space-between", 
+    marginTop: "20px", 
+    fontSize: "22px", 
+    fontWeight: "700", 
+    color: "white" 
   },
 
   addressTypeSelect: {
@@ -530,15 +534,14 @@ const styles = {
     outline: "none",
     fontSize: "15px",
   },
-
+  
   placeOrderBtn: {
     width: "100%",
     marginTop: "30px",
     padding: "18px",
     border: "none",
     borderRadius: "16px",
-    background:
-      "linear-gradient(135deg, #8b0026, #b3003c)",
+    background: "linear-gradient(135deg, #8b0026, #b3003c)",
     color: "white",
     fontSize: "18px",
     fontWeight: "700",

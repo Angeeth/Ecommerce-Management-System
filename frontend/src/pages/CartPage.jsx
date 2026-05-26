@@ -197,7 +197,13 @@ function CartPage() {
 
           </div>
 
-          <button style={styles.checkoutButton}>
+          <button 
+            style={styles.checkoutButton}
+            onClick={() => {
+              if (cartItems.length === 0) return;
+              window.location.href = `/checkout?from=cart`;
+            }}
+          >
             Proceed To Checkout
           </button>
 

@@ -4,6 +4,7 @@ import mysql.connector
 import os
 import uuid
 from dotenv import load_dotenv
+from typing import List, Optional
 
 load_dotenv()
 
@@ -38,13 +39,18 @@ class UserUpdateModel(BaseModel):
     username: str
     phone: str
 
+class ItemSchema(BaseModel):
+    product_id: int
+    quantity: int
+
 
 class OrderModel(BaseModel):
     user_id: int
     address_id: int
-    product_id: int
-    quantity: int
     payment_method: str
+    product_id: Optional[int] = None
+    quantity: Optional[int] = None
+    items: Optional[List[ItemSchema]] = None
 
 
 # GET USER + ADDRESS
@@ -168,23 +174,51 @@ def create_order(data: OrderModel):
     cursor = conn.cursor(dictionary=True)
 
     try:
-        # 1. GET PRODUCT
-        cursor.execute("""
-            SELECT price FROM product WHERE product_id=%s
-        """, (data.product_id,))
-        product = cursor.fetchone()
+        calculated_items = []
+        subtotal = 0.0
 
-        if not product:
-            raise HTTPException(status_code=404, detail="Product not found")
+        if data.product_id and data.quantity:
+            cursor.execute("SELECT price FROM product WHERE product_id = %s", (data.product_id,))
+            product = cursor.fetchone()
+            if not product:
+                raise HTTPException(status_code=404, detail="Product not found")
+            
+            price = float(product["price"])
+            item_subtotal = price * data.quantity
+            subtotal += item_subtotal
+            
+            calculated_items.append({
+                "product_id": data.product_id,
+                "quantity": data.quantity,
+                "price": price,
+                "subtotal": item_subtotal
+            })
 
-        price = float(product["price"])
-        subtotal = price * data.quantity
+        elif data.items:
+            for item in data.items:
+                cursor.execute("SELECT price FROM product WHERE product_id = %s", (item.product_id,))
+                product = cursor.fetchone()
+                if not product:
+                    raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found")
+                
+                price = float(product["price"])
+                item_subtotal = price * item.quantity
+                subtotal += item_subtotal
+                
+                calculated_items.append({
+                    "product_id": item.product_id,
+                    "quantity": item.quantity,
+                    "price": price,
+                    "subtotal": item_subtotal
+                })
+        else:
+            raise HTTPException(status_code=400, detail="Missing order items or product details")
+
 
         shipping = 99
         tax = round(subtotal * 0.05)
         total = subtotal + shipping + tax
 
-        # PAYMENT NORMALIZATION
         raw_method = (data.payment_method or "").strip().lower().replace("_", " ")
 
         method_map = {
@@ -207,36 +241,44 @@ def create_order(data: OrderModel):
             is_cod = normalized_method == "COD"
 
             order_table_payment_status = "PENDING" if is_cod else "PAID"
-
             payment_table_status = "PENDING" if is_cod else "SUCCESS"
 
-            cursor.execute("""
-                INSERT INTO orders
-                (user_id, address_id, total_amount, payment_status, order_status)
-                VALUES (%s,%s,%s,%s,%s)
-            """, (
-                data.user_id,
-                data.address_id,
-                total,
-                order_table_payment_status,  
-                "PLACED"
-            ))
+            created_orders = []
 
-            order_id = cursor.lastrowid
+            for calc_item in calculated_items:
 
-            cursor.execute("""
-                INSERT INTO order_item
-                (order_id, product_id, quantity, price, subtotal)
-                VALUES (%s,%s,%s,%s,%s)
-            """, (
-                order_id,
-                data.product_id,
-                data.quantity,
-                price,
-                subtotal
-            ))
+                item_total = calc_item["subtotal"]
+
+                cursor.execute("""
+                    INSERT INTO orders
+                    (user_id, address_id, total_amount, payment_status, order_status)
+                    VALUES (%s,%s,%s,%s,%s)
+                """, (
+                    data.user_id,
+                    data.address_id,
+                    item_total,
+                    order_table_payment_status,
+                    "PLACED"
+                ))
+
+                order_id = cursor.lastrowid
+
+                created_orders.append(order_id)
+
+                cursor.execute("""
+                    INSERT INTO order_item
+                    (order_id, product_id, quantity, price, subtotal)
+                    VALUES (%s,%s,%s,%s,%s)
+                """, (
+                    order_id,
+                    calc_item["product_id"],
+                    calc_item["quantity"],
+                    calc_item["price"],
+                    calc_item["subtotal"]
+                ))
 
             txn_id = generate_transaction_id()
+
             if is_cod:
                 txn_id = "COD-" + txn_id
 
@@ -247,10 +289,16 @@ def create_order(data: OrderModel):
             """, (
                 order_id,
                 normalized_method,
-                payment_table_status,  
+                payment_table_status,
                 txn_id,
                 total
             ))
+
+            if data.items:
+                cursor.execute("SELECT cart_id FROM cart WHERE user_id = %s", (data.user_id,))
+                user_cart = cursor.fetchone()
+                if user_cart:
+                    cursor.execute("DELETE FROM cart_item WHERE cart_id = %s", (user_cart["cart_id"],))
 
             conn.commit()
 
