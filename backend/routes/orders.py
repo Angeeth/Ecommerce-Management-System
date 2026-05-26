@@ -70,6 +70,7 @@ def get_user_orders(user_id: int):
 
         cursor.execute(query, (user_id,))
         rows = cursor.fetchall()
+        connection.commit()
 
         orders_dict = {}
 
@@ -104,6 +105,7 @@ def get_user_orders(user_id: int):
         return list(orders_dict.values())
 
     except Exception as e:
+        connection.rollback()
         return {"error": str(e)}
 
     finally:

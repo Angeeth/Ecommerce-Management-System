@@ -6,6 +6,7 @@ function LoginPage() {
 
   const navigate = useNavigate();
 
+
   useEffect(() => {
     document.body.style.margin = "0";
     document.body.style.padding = "0";
@@ -48,6 +49,8 @@ function LoginPage() {
       console.log(response.data);
 
       // RETURN TO PREVIOUS PAGE
+      const userRole = response.data.user.role;
+
       const redirectPage =
         localStorage.getItem("redirectAfterLogin");
 
@@ -59,9 +62,17 @@ function LoginPage() {
 
         navigate(redirectPage);
 
-      } else {
+      }  else {
 
-        navigate("/products");
+        if (userRole === "Seller") {
+
+          navigate("/seller-dashboard");
+
+        } else {
+
+          navigate("/products");
+
+        }
 
       }
 

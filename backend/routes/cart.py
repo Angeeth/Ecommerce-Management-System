@@ -7,72 +7,91 @@ router = APIRouter()
 @router.get("/cart/{user_id}")
 def get_cart(user_id: int):
 
-    query = """
-        SELECT
-            ci.cart_item_id,
-            p.product_id,
-            p.name,
-            p.price,
-            ci.quantity,
-            MIN(pi.image_url) AS image_url
+    cursor = conn.cursor(dictionary=True)
 
-        FROM cart c
+    try:
+        query = """
+            SELECT
+                ci.cart_item_id,
+                p.product_id,
+                p.name,
+                p.price,
+                ci.quantity,
+                MIN(pi.image_url) AS image_url
 
-        JOIN cart_item ci
-        ON c.cart_id = ci.cart_id
+            FROM cart c
 
-        JOIN product p
-        ON ci.product_id = p.product_id
+            JOIN cart_item ci
+            ON c.cart_id = ci.cart_id
 
-        LEFT JOIN product_image pi
-        ON p.product_id = pi.product_id
+            JOIN product p
+            ON ci.product_id = p.product_id
 
-        WHERE c.user_id = %s
+            LEFT JOIN product_image pi
+            ON p.product_id = pi.product_id
 
-        GROUP BY
-            ci.cart_item_id,
-            p.product_id,
-            p.name,
-            p.price,
-            ci.quantity
-    """
+            WHERE c.user_id = %s
 
-    cursor.execute(query, (user_id,))
+            GROUP BY
+                ci.cart_item_id,
+                p.product_id,
+                p.name,
+                p.price,
+                ci.quantity
+        """
 
-    cart_items = cursor.fetchall()
+        cursor.execute(query, (user_id,))
 
-    return cart_items
+        cart_items = cursor.fetchall()
+        conn.commit()
+
+        return cart_items
+    except Exception as e:
+            conn.rollback()
+            return {"error": str(e)}
+    finally:
+            # ADD THIS: Always close it
+            cursor.close()
 
 
 # REMOVE ITEM FROM CART
 @router.delete("/cart/remove/{cart_item_id}")
 def remove_cart_item(cart_item_id: int):
+    cursor = conn.cursor(dictionary=True)
 
-    # CHECK ITEM EXISTS
-    check_query = """
-        SELECT * FROM cart_item
-        WHERE cart_item_id = %s
-    """
+    try:
 
-    cursor.execute(check_query, (cart_item_id,))
+        # CHECK ITEM EXISTS
+        check_query = """
+            SELECT * FROM cart_item
+            WHERE cart_item_id = %s
+        """
 
-    item = cursor.fetchone()
+        cursor.execute(check_query, (cart_item_id,))
 
-    if not item:
+        item = cursor.fetchone()
+
+        if not item:
+            return {
+                "message": "Cart item not found"
+            }
+
+        # DELETE ITEM
+        delete_query = """
+            DELETE FROM cart_item
+            WHERE cart_item_id = %s
+        """
+
+        cursor.execute(delete_query, (cart_item_id,))
+
+        conn.commit()
+
         return {
-            "message": "Cart item not found"
+            "message": "Item removed successfully"
         }
-
-    # DELETE ITEM
-    delete_query = """
-        DELETE FROM cart_item
-        WHERE cart_item_id = %s
-    """
-
-    cursor.execute(delete_query, (cart_item_id,))
-
-    conn.commit()
-
-    return {
-        "message": "Item removed successfully"
-    }
+    except Exception as e:
+        conn.rollback()
+        return {"error": str(e)}
+    finally:
+        # ADD THIS: Always close it
+        cursor.close()

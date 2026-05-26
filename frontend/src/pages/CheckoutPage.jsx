@@ -160,7 +160,7 @@ function CheckoutPage() {
       console.log("ORDER RESPONSE:", orderResponse.data);
       alert("Order Placed Successfully 🎉");
       setLoading(false);
-      window.location.href = "/products";
+      window.location.href = "/orders";
 
     }  catch (error) {
     console.error("FULL ERROR OBJECT:", error.response?.data);

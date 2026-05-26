@@ -21,9 +21,11 @@ function OrdersPage() {
     try {
 
       setLoading(true);
+      const user = JSON.parse(localStorage.getItem("user"));
 
-      const res = await axios.get("http://localhost:8000/orders/1");
-
+      const res = await axios.get(
+        `http://localhost:8000/orders/${user.user_id}`
+      );
       const active = [];
       const delivered = [];
       const returned = [];
@@ -251,7 +253,16 @@ function OrdersPage() {
     <div style={styles.page}>
 
       <div style={styles.header}>
+
+        <button
+          style={styles.backBtn}
+          onClick={() => window.history.back()}
+        >
+          ← Back
+        </button>
+
         <h1 style={styles.heading}>My Orders</h1>
+
       </div>
 
       {/* ACTIVE */}
@@ -452,8 +463,22 @@ const styles = {
     fontSize: "40px"
   },
 
+  backBtn: {
+  padding: "10px 18px",
+  borderRadius: "10px",
+  border: "none",
+  cursor: "pointer",
+  background: "white",
+  fontWeight: "bold",
+  fontSize: "16px",
+  height: "45px"
+  },
+
   header: {
-    marginBottom: "40px"
+    marginBottom: "40px",
+    display: "flex",
+    alignItems: "center",
+    gap: "20px"
   },
 
   heading: {

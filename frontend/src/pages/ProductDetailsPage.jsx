@@ -276,10 +276,6 @@ function ProductDetailsPage() {
 
           </div>
 
-          <p style={styles.category}>
-            Category ID: {product.category_id}
-          </p>
-
           <h2 style={styles.price}>
             ₹ {product.price}
           </h2>
