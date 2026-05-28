@@ -1,66 +1,98 @@
-from fastapi import APIRouter, Query
-from database.db import cursor, conn
+from fastapi import APIRouter, Query, HTTPException
+
+from database.db import get_db_connection
 
 router = APIRouter()
 
 
-# GET ALL PRODUCTS
+# ---------------- GET ALL PRODUCTS ----------------
+
 @router.get("/products")
 def get_products(category_id: int = Query(None)):
 
-    query = """
-        SELECT
-            p.product_id,
-            p.name,
-            p.price,
-            p.stock_quantity,
-            MIN(pi.image_url) AS image_url,
+    conn = None
+    cursor = None
 
-            ROUND(AVG(DISTINCT r.rating), 1)
-            AS average_rating,
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
-            COUNT(DISTINCT r.review_id)
-            AS total_reviews
+        query = """
+            SELECT
+                p.product_id,
+                p.name,
+                p.price,
+                p.stock_quantity,
+                MIN(pi.image_url) AS image_url,
 
-        FROM product p
+                ROUND(AVG(DISTINCT r.rating), 1)
+                AS average_rating,
 
-        LEFT JOIN product_image pi
-        ON p.product_id = pi.product_id
+                COUNT(DISTINCT r.review_id)
+                AS total_reviews
 
-        LEFT JOIN review r
-        ON p.product_id = r.product_id
-        AND r.review_status = 'VISIBLE'
-    """
+            FROM product p
 
-    params = []
+            LEFT JOIN product_image pi
+            ON p.product_id = pi.product_id
 
-    if category_id is not None:
-
-        query += """
-            WHERE p.category_id = %s
+            LEFT JOIN review r
+            ON p.product_id = r.product_id
+            AND r.review_status = 'VISIBLE'
         """
 
-        params.append(category_id)
+        params = []
 
-    query += """
-        GROUP BY
-            p.product_id,
-            p.name,
-            p.price,
-            p.stock_quantity
-    """
+        if category_id is not None:
 
-    cursor.execute(query, params)
+            query += """
+                WHERE p.category_id = %s
+            """
 
-    products = cursor.fetchall()
+            params.append(category_id)
 
-    return products
+        query += """
+            GROUP BY
+                p.product_id,
+                p.name,
+                p.price,
+                p.stock_quantity
+        """
 
-# PRODUCT DETAILS
+        cursor.execute(query, params)
+
+        products = cursor.fetchall()
+
+        return products
+
+    except Exception as e:
+
+        print("GET PRODUCTS ERROR:", e)
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if conn:
+            conn.close()
+
+
+# ---------------- PRODUCT DETAILS ----------------
+
 @router.get("/products/{product_id}")
 def get_product(product_id: int):
 
+    conn = None
+    cursor = None
+
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
         # PRODUCT + IMAGES
         product_query = """
@@ -71,17 +103,25 @@ def get_product(product_id: int):
                 p.description,
                 p.category_id,
                 pi.image_url
+
             FROM product p
+
             LEFT JOIN product_image pi
             ON p.product_id = pi.product_id
+
             WHERE p.product_id = %s
         """
 
         cursor.execute(product_query, (product_id,))
+
         rows = cursor.fetchall()
 
         if not rows:
-            return {"message": "Product not found"}
+
+            raise HTTPException(
+                status_code=404,
+                detail="Product not found"
+            )
 
         # CLEAN IMAGES
         images = []
@@ -107,18 +147,21 @@ def get_product(product_id: int):
                     r.rating,
                     r.review_text AS comment,
                     r.created_at
+
                 FROM review r
+
                 LEFT JOIN user u
                 ON r.user_id = u.user_id
+
                 WHERE r.product_id = %s
                 AND r.review_status = 'VISIBLE'
+
                 ORDER BY r.created_at DESC
             """
 
             cursor.execute(review_query, (product_id,))
-            review_rows = cursor.fetchall()
 
-            reviews = []
+            review_rows = cursor.fetchall()
 
             for r in review_rows:
 
@@ -161,31 +204,48 @@ def get_product(product_id: int):
 
         return product
 
+    except HTTPException as http_error:
+        raise http_error
+
     except Exception as e:
 
         print("PRODUCT DETAILS ERROR:", e)
 
-        return {
-            "error": "Internal Server Error",
-            "details": str(e)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if conn:
+            conn.close()
 
 
-# ADD TO CART
+# ---------------- ADD TO CART ----------------
+
 @router.post("/add-to-cart")
 def add_to_cart(data: dict):
 
+    conn = None
+    cursor = None
+
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
         user_id = data.get("user_id")
         product_id = data.get("product_id")
         quantity = data.get("quantity", 1)
 
         if not user_id:
-            return {
-                "success": False,
-                "message": "Login Required"
-            }
+
+            raise HTTPException(
+                status_code=401,
+                detail="Login Required"
+            )
 
         # CHECK USER CART
         cart_query = """
@@ -195,6 +255,7 @@ def add_to_cart(data: dict):
         """
 
         cursor.execute(cart_query, (user_id,))
+
         cart = cursor.fetchone()
 
         # CREATE CART IF NOT EXISTS
@@ -206,6 +267,7 @@ def add_to_cart(data: dict):
             """
 
             cursor.execute(create_cart_query, (user_id,))
+
             conn.commit()
 
             cart_id = cursor.lastrowid
@@ -275,30 +337,50 @@ def add_to_cart(data: dict):
             "message": "Added To Cart"
         }
 
+    except HTTPException as http_error:
+        raise http_error
+
     except Exception as e:
 
         print("ADD TO CART ERROR:", e)
 
-        return {
-            "success": False,
-            "message": str(e)
-        }
+        if conn:
+            conn.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if conn:
+            conn.close()
 
 
-# ADD TO WISHLIST
+# ---------------- ADD TO WISHLIST ----------------
+
 @router.post("/wishlist")
 def add_to_wishlist(data: dict):
 
+    conn = None
+    cursor = None
+
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
         user_id = data.get("user_id")
         product_id = data.get("product_id")
 
         if not user_id:
-            return {
-                "success": False,
-                "message": "Login Required"
-            }
+
+            raise HTTPException(
+                status_code=401,
+                detail="Login Required"
+            )
 
         # CHECK USER WISHLIST
         wishlist_query = """
@@ -308,6 +390,7 @@ def add_to_wishlist(data: dict):
         """
 
         cursor.execute(wishlist_query, (user_id,))
+
         wishlist = cursor.fetchone()
 
         # CREATE WISHLIST IF NOT EXISTS
@@ -375,11 +458,24 @@ def add_to_wishlist(data: dict):
             "message": "Added To Wishlist"
         }
 
+    except HTTPException as http_error:
+        raise http_error
+
     except Exception as e:
 
         print("WISHLIST ERROR:", e)
 
-        return {
-            "success": False,
-            "message": str(e)
-        }
+        if conn:
+            conn.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if conn:
+            conn.close()

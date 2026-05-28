@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-function LoginPage() {
+function LoginPage({ setUser }) {
 
   const navigate = useNavigate();
-
+  
 
   useEffect(() => {
     document.body.style.margin = "0";
@@ -19,65 +19,57 @@ function LoginPage() {
   });
 
   const handleChange = (e) => {
-
     setLoginData({
       ...loginData,
       [e.target.name]: e.target.value,
     });
-
   };
 
   const handleLogin = async (e) => {
-
     e.preventDefault();
 
     try {
-
       const response = await axios.post(
         "http://127.0.0.1:8000/login",
         loginData
       );
 
-      // STORE USER DATA
+      console.log("LOGIN RESPONSE:", response.data);
+
+      const userData = response.data.user;
+
+      const safeUserData = {
+        ...userData,
+        seller_id: userData.seller_id || null,
+      };
+
       localStorage.setItem(
         "user",
-        JSON.stringify(response.data.user)
+        JSON.stringify(safeUserData)
       );
+
+      setUser(safeUserData);
 
       alert(response.data.message);
 
-      console.log(response.data);
-
-      // RETURN TO PREVIOUS PAGE
-      const userRole = response.data.user.role;
+      const userRole =
+        response.data.user.role
+          ?.toString()
+          .toLowerCase()
+          .trim() || "customer";
 
       const redirectPage =
         localStorage.getItem("redirectAfterLogin");
 
       if (redirectPage) {
-
-        localStorage.removeItem(
-          "redirectAfterLogin"
-        );
-
+        localStorage.removeItem("redirectAfterLogin");
         navigate(redirectPage);
-
-      }  else {
-
-        if (userRole === "Seller") {
-
-          navigate("/seller-dashboard");
-
-        } else {
-
-          navigate("/products");
-
-        }
-
+      } else if (userRole === "seller") {
+        navigate("/seller-dashboard");
+      } else {
+        navigate("/products");
       }
-
     } catch (error) {
-
       console.log(error);
 
       if (error.response) {
@@ -89,26 +81,21 @@ function LoginPage() {
   };
 
   return (
-
     <div style={styles.page}>
-
       <div style={styles.backgroundCircle1}></div>
       <div style={styles.backgroundCircle2}></div>
       <div style={styles.backgroundCircle3}></div>
 
       <div style={styles.card}>
-
         <div style={styles.left}>
-
           <div style={styles.circleTop}></div>
           <div style={styles.circleBottom}></div>
 
-          <h1 style={styles.logo}>
-            EasyCart
-          </h1>
+          <h1 style={styles.logo}>EasyCart</h1>
 
           <p style={styles.tagline}>
-            Buy Better<br />
+            Buy Better
+            <br />
             Sell Smarter
           </p>
 
@@ -116,21 +103,13 @@ function LoginPage() {
             Secure shopping with intelligent fraud detection,
             seamless checkout and premium user experience.
           </p>
-
         </div>
 
         <div style={styles.right}>
-
-          <h2 style={styles.title}>
-            Welcome Back
-          </h2>
-
-          <p style={styles.subtitle}>
-            Login to continue shopping
-          </p>
+          <h2 style={styles.title}>Welcome Back</h2>
+          <p style={styles.subtitle}>Login to continue shopping</p>
 
           <form onSubmit={handleLogin}>
-
             <input
               type="email"
               name="email"
@@ -152,54 +131,32 @@ function LoginPage() {
             />
 
             <div style={styles.options}>
-
               <label style={styles.rememberMe}>
-
                 <input type="checkbox" />
-
                 Remember Me
-
               </label>
 
               <span style={styles.forgotPassword}>
                 Forgot Password?
               </span>
-
             </div>
 
             <button type="submit" style={styles.button}>
-
               Login
-
             </button>
-
           </form>
 
           <div style={styles.socialContainer}>
-
-            <button style={styles.socialButton}>
-              Google
-            </button>
-
-            <button style={styles.socialButton}>
-              Apple
-            </button>
-
+            <button style={styles.socialButton}>Google</button>
+            <button style={styles.socialButton}>Apple</button>
           </div>
 
           <p style={styles.bottomText}>
-
             Don’t have an account?{" "}
-
-            <Link
-              to="/signup"
-              style={styles.signupText}
-            >
+            <Link to="/signup" style={styles.signupText}>
               Sign Up
             </Link>
-
           </p>
-
         </div>
       </div>
     </div>
@@ -217,8 +174,7 @@ const styles = {
     position: "fixed",
     top: 0,
     left: 0,
-    background:
-      "linear-gradient(135deg, #2b000a, #5e0017, #8b0026)",
+    background: "linear-gradient(135deg, #2b000a, #5e0017, #8b0026)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -275,8 +231,7 @@ const styles = {
     flex: 1,
     position: "relative",
     overflow: "hidden",
-    background:
-      "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))",
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
@@ -385,8 +340,7 @@ const styles = {
     padding: "17px",
     border: "none",
     borderRadius: "15px",
-    background:
-      "linear-gradient(135deg, #5e0017, #8b0026)",
+    background: "linear-gradient(135deg, #5e0017, #8b0026)",
     color: "white",
     fontSize: "17px",
     fontWeight: "600",

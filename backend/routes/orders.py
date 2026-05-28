@@ -1,18 +1,22 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from database.db import conn
+
+from database.db import get_db_connection
 
 router = APIRouter()
 
 
-# GET ORDERS
+# ---------------- GET ORDERS ----------------
+
 @router.get("/orders/{user_id}")
 def get_user_orders(user_id: int):
 
-    connection = conn
-    cursor = connection.cursor(dictionary=True)
+    conn = None
+    cursor = None
 
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
         query = """
             SELECT
@@ -69,8 +73,8 @@ def get_user_orders(user_id: int):
         """
 
         cursor.execute(query, (user_id,))
+
         rows = cursor.fetchall()
-        connection.commit()
 
         orders_dict = {}
 
@@ -79,6 +83,7 @@ def get_user_orders(user_id: int):
             order_id = row["order_id"]
 
             if order_id not in orders_dict:
+
                 orders_dict[order_id] = {
                     "order_id": order_id,
                     "total_amount": float(row["total_amount"]) if row["total_amount"] else 0,
@@ -105,14 +110,27 @@ def get_user_orders(user_id: int):
         return list(orders_dict.values())
 
     except Exception as e:
-        connection.rollback()
-        return {"error": str(e)}
+
+        print("GET ORDERS ERROR:", e)
+
+        if conn:
+            conn.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
     finally:
-        cursor.close()
+        if cursor:
+            cursor.close()
+
+        if conn:
+            conn.close()
 
 
-# RETURN REQUEST
+# ---------------- RETURN REQUEST ----------------
+
 class ReturnRequestModel(BaseModel):
     order_item_id: int
     user_id: int
@@ -122,15 +140,21 @@ class ReturnRequestModel(BaseModel):
 @router.post("/return-request")
 def create_return_request(data: ReturnRequestModel):
 
-    connection = conn
-    cursor = connection.cursor(dictionary=True)
+    conn = None
+    cursor = None
 
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
         if not data.return_reason or not data.return_reason.strip():
-            return {"error": "Return reason is required"}
 
-        # prevent duplicate return
+            raise HTTPException(
+                status_code=400,
+                detail="Return reason is required"
+            )
+
+        # PREVENT DUPLICATE RETURN
         cursor.execute("""
             SELECT return_id
             FROM return_request
@@ -138,27 +162,47 @@ def create_return_request(data: ReturnRequestModel):
         """, (data.order_item_id,))
 
         if cursor.fetchone():
-            return {"error": "Return already requested for this item"}
 
+            raise HTTPException(
+                status_code=400,
+                detail="Return already requested for this item"
+            )
+
+        # VALIDATE ORDER ITEM
         cursor.execute("""
             SELECT oi.order_id
             FROM order_item oi
-            JOIN orders o ON oi.order_id = o.order_id
+
+            JOIN orders o
+                ON oi.order_id = o.order_id
+
             WHERE oi.order_item_id = %s
             AND o.user_id = %s
-        """, (data.order_item_id, data.user_id))
+        """, (
+            data.order_item_id,
+            data.user_id
+        ))
 
         row = cursor.fetchone()
 
         if not row:
-            return {"error": "Invalid order item"}
+
+            raise HTTPException(
+                status_code=404,
+                detail="Invalid order item"
+            )
 
         order_id = row["order_id"]
 
-        # insert return request
+        # INSERT RETURN REQUEST
         cursor.execute("""
             INSERT INTO return_request
-            (order_item_id, user_id, return_reason, return_status)
+            (
+                order_item_id,
+                user_id,
+                return_reason,
+                return_status
+            )
             VALUES (%s, %s, %s, %s)
         """, (
             data.order_item_id,
@@ -167,29 +211,45 @@ def create_return_request(data: ReturnRequestModel):
             "REQUESTED"
         ))
 
-        # update order status
+        # UPDATE ORDER STATUS
         cursor.execute("""
             UPDATE orders
             SET order_status = 'RETURN_REQUESTED'
             WHERE order_id = %s
         """, (order_id,))
 
-        connection.commit()
+        conn.commit()
 
         return {
             "message": "Return request created successfully",
             "status": "REQUESTED"
         }
 
+    except HTTPException as http_error:
+        raise http_error
+
     except Exception as e:
-        connection.rollback()
-        return {"error": str(e)}
+
+        print("RETURN REQUEST ERROR:", e)
+
+        if conn:
+            conn.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
     finally:
-        cursor.close()
+        if cursor:
+            cursor.close()
+
+        if conn:
+            conn.close()
 
 
-# CANCEL ORDER
+# ---------------- CANCEL ORDER ----------------
+
 class CancelOrderModel(BaseModel):
     order_id: int
     user_id: int
@@ -198,44 +258,82 @@ class CancelOrderModel(BaseModel):
 @router.post("/cancel-order")
 def cancel_order(data: CancelOrderModel):
 
-    connection = conn
-    cursor = connection.cursor()
+    conn = None
+    cursor = None
 
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
         cursor.execute("""
             SELECT order_status
             FROM orders
-            WHERE order_id = %s AND user_id = %s
-        """, (data.order_id, data.user_id))
+            WHERE order_id = %s
+            AND user_id = %s
+        """, (
+            data.order_id,
+            data.user_id
+        ))
 
         order = cursor.fetchone()
 
         if not order:
-            return {"error": "Order not found"}
+
+            raise HTTPException(
+                status_code=404,
+                detail="Order not found"
+            )
 
         if order[0] == "DELIVERED":
-            return {"error": "Delivered orders cannot be cancelled"}
+
+            raise HTTPException(
+                status_code=400,
+                detail="Delivered orders cannot be cancelled"
+            )
 
         if order[0] == "CANCELLED":
-            return {"error": "Order already cancelled"}
 
+            raise HTTPException(
+                status_code=400,
+                detail="Order already cancelled"
+            )
+
+        # CANCEL ORDER
         cursor.execute("""
             UPDATE orders
             SET order_status = 'CANCELLED'
-            WHERE order_id = %s AND user_id = %s
-        """, (data.order_id, data.user_id))
+            WHERE order_id = %s
+            AND user_id = %s
+        """, (
+            data.order_id,
+            data.user_id
+        ))
 
-        connection.commit()
+        conn.commit()
 
         return {
             "message": "Order cancelled successfully",
             "status": "CANCELLED"
         }
 
+    except HTTPException as http_error:
+        raise http_error
+
     except Exception as e:
-        connection.rollback()
-        return {"error": str(e)}
+
+        print("CANCEL ORDER ERROR:", e)
+
+        if conn:
+            conn.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
     finally:
-        cursor.close()
+        if cursor:
+            cursor.close()
+
+        if conn:
+            conn.close()

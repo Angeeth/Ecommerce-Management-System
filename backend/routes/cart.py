@@ -1,15 +1,21 @@
-from fastapi import APIRouter
-from database.db import cursor, conn
+from fastapi import APIRouter, HTTPException
+from database.db import get_db_connection
 
 router = APIRouter()
 
-# GET USER CART
+# ---------------- GET USER CART ----------------
+
 @router.get("/cart/{user_id}")
 def get_cart(user_id: int):
 
-    cursor = conn.cursor(dictionary=True)
+    conn = None
+    cursor = None
 
     try:
+        # DB CONNECTION
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
         query = """
             SELECT
                 ci.cart_item_id,
@@ -43,23 +49,40 @@ def get_cart(user_id: int):
         cursor.execute(query, (user_id,))
 
         cart_items = cursor.fetchall()
-        conn.commit()
 
         return cart_items
+
     except Exception as e:
-            conn.rollback()
-            return {"error": str(e)}
+
+        print("GET CART ERROR:", e)
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
     finally:
-            # ADD THIS: Always close it
+        # CLOSE CURSOR
+        if cursor:
             cursor.close()
 
+        # CLOSE CONNECTION
+        if conn:
+            conn.close()
 
-# REMOVE ITEM FROM CART
+
+# ---------------- REMOVE ITEM FROM CART ----------------
+
 @router.delete("/cart/remove/{cart_item_id}")
 def remove_cart_item(cart_item_id: int):
-    cursor = conn.cursor(dictionary=True)
+
+    conn = None
+    cursor = None
 
     try:
+        # DB CONNECTION
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
         # CHECK ITEM EXISTS
         check_query = """
@@ -72,9 +95,10 @@ def remove_cart_item(cart_item_id: int):
         item = cursor.fetchone()
 
         if not item:
-            return {
-                "message": "Cart item not found"
-            }
+            raise HTTPException(
+                status_code=404,
+                detail="Cart item not found"
+            )
 
         # DELETE ITEM
         delete_query = """
@@ -84,14 +108,34 @@ def remove_cart_item(cart_item_id: int):
 
         cursor.execute(delete_query, (cart_item_id,))
 
+        # SAVE CHANGES
         conn.commit()
 
         return {
             "message": "Item removed successfully"
         }
+
+    except HTTPException as http_error:
+        raise http_error
+
     except Exception as e:
-        conn.rollback()
-        return {"error": str(e)}
+
+        print("REMOVE CART ITEM ERROR:", e)
+
+        # ROLLBACK ON ERROR
+        if conn:
+            conn.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
     finally:
-        # ADD THIS: Always close it
-        cursor.close()
+        # CLOSE CURSOR
+        if cursor:
+            cursor.close()
+
+        # CLOSE CONNECTION
+        if conn:
+            conn.close()

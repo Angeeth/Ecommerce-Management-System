@@ -1,16 +1,21 @@
-from fastapi import APIRouter
-from database.db import conn
+from fastapi import APIRouter, HTTPException
+
+from database.db import get_db_connection
 
 router = APIRouter()
 
 
-# GET USER WISHLIST
+# ---------------- GET USER WISHLIST ----------------
+
 @router.get("/wishlist/{user_id}")
 def get_wishlist(user_id: int):
 
-    cursor = conn.cursor(dictionary=True)
+    conn = None
+    cursor = None
 
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
         query = """
             SELECT
@@ -48,21 +53,52 @@ def get_wishlist(user_id: int):
 
     except Exception as e:
 
-        return {"error": str(e)}
+        print("GET WISHLIST ERROR:", e)
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
     finally:
+        if cursor:
+            cursor.close()
 
-        cursor.close()
+        if conn:
+            conn.close()
 
 
-# REMOVE FROM WISHLIST
+# ---------------- REMOVE FROM WISHLIST ----------------
+
 @router.delete("/wishlist/remove/{wishlist_item_id}")
 def remove_wishlist_item(wishlist_item_id: int):
 
-    cursor = conn.cursor(dictionary=True)
+    conn = None
+    cursor = None
 
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
+        # CHECK ITEM EXISTS
+        check_query = """
+            SELECT wishlist_item_id
+            FROM wishlist_item
+            WHERE wishlist_item_id = %s
+        """
+
+        cursor.execute(check_query, (wishlist_item_id,))
+
+        item = cursor.fetchone()
+
+        if not item:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Wishlist item not found"
+            )
+
+        # DELETE ITEM
         delete_query = """
             DELETE FROM wishlist_item
             WHERE wishlist_item_id = %s
@@ -76,12 +112,24 @@ def remove_wishlist_item(wishlist_item_id: int):
             "message": "Item removed successfully"
         }
 
+    except HTTPException as http_error:
+        raise http_error
+
     except Exception as e:
 
-        conn.rollback()
+        print("REMOVE WISHLIST ITEM ERROR:", e)
 
-        return {"error": str(e)}
+        if conn:
+            conn.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
     finally:
+        if cursor:
+            cursor.close()
 
-        cursor.close()
+        if conn:
+            conn.close()

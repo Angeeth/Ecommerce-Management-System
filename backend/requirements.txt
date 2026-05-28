@@ -8,3 +8,4 @@ bcrypt==4.0.1
 cryptography
 python-jose[cryptography]
 python-dotenv
+python-multipart
