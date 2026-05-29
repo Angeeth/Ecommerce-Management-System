@@ -167,7 +167,8 @@ function SellerDashboard() {
             Dashboard
           </button>
 
-          <button style={styles.menuButton}>
+          <button style={styles.menuButton}
+            onClick={() => window.location.href = "/seller-orders"}>
             <ShoppingBag size={20} />
             Orders
           </button>
@@ -179,7 +180,8 @@ function SellerDashboard() {
             Products
           </button>
 
-          <button style={styles.menuButton}>
+          <button style={styles.menuButton}
+            onClick={() => window.location.href = "/seller-returns"}>
             <RotateCcw size={20} />
             Returns
           </button>

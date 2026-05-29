@@ -17,6 +17,9 @@ import OrdersPage from "./pages/OrdersPage";
 import WishlistPage from "./pages/WishlistPage";
 import SellerDashboard from "./pages/SellerDashboard";
 import SellerProducts from "./pages/SellerProducts";
+import SellerOrdersPage from "./pages/SellerOrdersPage";
+import SellerReturnsPage from "./pages/SellerReturnsPage";
+
 
 function App() {
 
@@ -132,7 +135,7 @@ function App() {
           }
         />
 
-        {/* SELLER DASHBOARD */}
+        {/* SELLER ROUTES */}
         <Route
           path="/seller-dashboard"
           element={
@@ -149,6 +152,28 @@ function App() {
           element={
             role === "seller" ? (
               <SellerProducts />
+            ) : (
+              <Navigate to="/products" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/seller-orders"
+          element={
+            role === "seller" ? (
+              <SellerOrdersPage />
+            ) : (
+              <Navigate to="/products" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/seller-Returns"
+          element={
+            role === "seller" ? (
+              <SellerReturnsPage />
             ) : (
               <Navigate to="/products" replace />
             )
