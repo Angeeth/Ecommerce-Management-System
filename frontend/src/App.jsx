@@ -19,6 +19,7 @@ import SellerDashboard from "./pages/SellerDashboard";
 import SellerProducts from "./pages/SellerProducts";
 import SellerOrdersPage from "./pages/SellerOrdersPage";
 import SellerReturnsPage from "./pages/SellerReturnsPage";
+import SellerReviewsPage from "./pages/SellerReviewsPage";
 
 
 function App() {
@@ -174,6 +175,17 @@ function App() {
           element={
             role === "seller" ? (
               <SellerReturnsPage />
+            ) : (
+              <Navigate to="/products" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/seller-reviews"
+          element={
+            role === "seller" ? (
+              <SellerReviewsPage />
             ) : (
               <Navigate to="/products" replace />
             )

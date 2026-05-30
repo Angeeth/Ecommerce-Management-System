@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 function OrdersPage() {
-
   const [activeOrders, setActiveOrders] = useState([]);
   const [deliveredOrders, setDeliveredOrders] = useState([]);
   const [returnedOrders, setReturnedOrders] = useState([]);
@@ -42,29 +41,25 @@ function OrdersPage() {
               originalIndex: itemIndex
             };
 
-            if (item.return_status === "REQUESTED") {
+            if (item.return_status) {
               returned.push(orderedItem);
-            }
+            } 
             else if (order.order_status === "DELIVERED") {
               delivered.push(orderedItem);
-            }
+            } 
             else if (order.order_status === "CANCELLED") {
               returned.push(orderedItem);
-            }
+            } 
             else {
               active.push(orderedItem);
             }
-
           });
-
         }
-
       });
 
       setActiveOrders(active);
       setDeliveredOrders(delivered);
       setReturnedOrders(returned);
-
     } catch (err) {
       console.log("Orders Error:", err);
     } finally {
@@ -78,28 +73,24 @@ function OrdersPage() {
   };
 
   const submitReturn = async () => {
-
     if (!returnReason.trim()) {
       alert("Please enter return reason");
       return;
     }
 
     try {
-
+      const user = JSON.parse(localStorage.getItem("user"));
       await axios.post("http://localhost:8000/return-request", {
         order_item_id: selectedOrder.item.order_item_id,
-        user_id: 1,
+        user_id: user.user_id,
         return_reason: returnReason
       });
 
       alert("Return request submitted successfully");
-
       setShowReturnForm(false);
       setReturnReason("");
       setSelectedOrder(null);
-
       fetchOrders();
-
     } catch (err) {
       console.log("Return Error:", err);
       alert("Failed to submit return request");
@@ -109,16 +100,14 @@ function OrdersPage() {
   const cancelOrder = async (orderId) => {
 
     try {
-
+      const user = JSON.parse(localStorage.getItem("user"));
       await axios.post("http://localhost:8000/cancel-order", {
         order_id: orderId,
-        user_id: 1
+        user_id: user.user_id
       });
 
       alert("Order cancelled successfully");
-
       fetchOrders();
-
     } catch (err) {
       console.log("Cancel Error:", err);
       alert("Failed to cancel order");
@@ -126,29 +115,14 @@ function OrdersPage() {
   };
 
   const renderTimeline = (status) => {
-
     const steps = ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"];
     const currentIndex = steps.indexOf(status);
 
     return (
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        marginTop: "18px",
-        width: "100%"
-      }}>
-
+      <div style={{ display: "flex", alignItems: "center", marginTop: "18px", width: "100%" }}>
         {steps.map((step, index) => (
-
           <React.Fragment key={index}>
-
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              flex: 1
-            }}>
-
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
               <div
                 style={{
                   width: "16px",
@@ -162,81 +136,60 @@ function OrdersPage() {
                       : "rgba(255,255,255,0.25)",
                 }}
               />
-
-              <p style={{
-                fontSize: "10px",
-                marginTop: "6px",
-                color: "#fff"
-              }}>
+              <p style={{ fontSize: "10px", marginTop: "6px", color: "#fff" }}>
                 {step.replaceAll("_", " ")}
               </p>
-
             </div>
 
             {index !== steps.length - 1 && (
               <div style={{
                 height: "3px",
                 flex: 1,
-                background:
-                  index < currentIndex
-                    ? "#00d26a"
-                    : "rgba(255,255,255,0.15)"
+                background: index < currentIndex ? "#00d26a" : "rgba(255,255,255,0.15)"
               }} />
             )}
-
           </React.Fragment>
-
         ))}
-
       </div>
     );
   };
 
-  const renderReturnTimeline = () => {
-
+  const renderReturnTimeline = (currentStatus) => {
     const steps = ["REQUESTED", "APPROVED", "PICKED_UP", "REFUNDED"];
+    const currentIndex = steps.indexOf(currentStatus);
 
     return (
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        marginTop: "10px",
-        width: "100%"
-      }}>
-
+      <div style={{ display: "flex", alignItems: "center", marginTop: "15px", width: "100%" }}>
         {steps.map((step, index) => (
-
-          <div key={index} style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            flex: 1
-          }}>
-
-            <div
-              style={{
-                width: "12px",
-                height: "12px",
-                borderRadius: "50%",
-                background:
-                  index === 0
-                    ? "#ffcc00"
-                    : "rgba(255,255,255,0.2)"
-              }}
-            />
-
-            <p style={{
-              fontSize: "9px",
-              marginTop: "4px",
-              color: "#fff"
-            }}>
-              {step.replaceAll("_", " ")}
-            </p>
-
-          </div>
-
+          <React.Fragment key={index}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
+              <div
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "50%",
+                  background:
+                    index < currentIndex
+                      ? "#00d26a"
+                      : index === currentIndex
+                      ? "#ffcc00"
+                      : "rgba(255,255,255,0.2)"
+                }}
+              />
+              <p style={{ fontSize: "9px", marginTop: "4px", color: "#fff" }}>
+                {step.replaceAll("_", " ")}
+              </p>
+            </div>
+            
+            {index !== steps.length - 1 && (
+              <div style={{
+                height: "2px",
+                flex: 1,
+                background: index < currentIndex ? "#00d26a" : "rgba(255,255,255,0.1)"
+              }} />
+            )}
+          </React.Fragment>
         ))}
-
       </div>
     );
   };
@@ -251,27 +204,19 @@ function OrdersPage() {
 
   return (
     <div style={styles.page}>
-
       <div style={styles.header}>
-
-        <button
-          style={styles.backBtn}
-          onClick={() => window.history.back()}
-        >
+        <button style={styles.backBtn} onClick={() => window.history.back()}>
           ← Back
         </button>
-
         <h1 style={styles.heading}>My Orders</h1>
-
       </div>
 
       {/* ACTIVE */}
       <div style={styles.section}>
         <h2 style={styles.sectionTitle}>Active Orders</h2>
-
-        {activeOrders.map((order, index) => (
+        {activeOrders.length === 0 ? <p style={{color: '#aaa'}}>No active orders</p> : 
+         activeOrders.map((order, index) => (
           <div key={index} style={styles.orderCard}>
-
             <div style={styles.imageContainer}>
               <img
                 src={`http://localhost:8000/product_img/${order.item.image_url}`}
@@ -279,25 +224,16 @@ function OrdersPage() {
                 style={styles.image}
               />
             </div>
-
             <div style={styles.details}>
-              <h2 style={styles.productName}>
-                {order.item.product_name}
-              </h2>
-
-              <p style={styles.price}>
-                ₹ {order.item.subtotal}
-              </p>
-
+              <h2 style={styles.productName}>{order.item.product_name}</h2>
+              <p style={styles.price}>₹ {order.item.subtotal}</p>
               {renderTimeline(order.order_status)}
-
               <button
                 style={styles.cancelBtn}
                 onClick={() => cancelOrder(order.order_id)}
               >
                 Cancel Order
               </button>
-
             </div>
           </div>
         ))}
@@ -306,10 +242,9 @@ function OrdersPage() {
       {/* DELIVERED */}
       <div style={styles.section}>
         <h2 style={styles.sectionTitle}>Delivered Orders</h2>
-
-        {deliveredOrders.map((order, index) => (
+        {deliveredOrders.length === 0 ? <p style={{color: '#aaa'}}>No delivered orders</p> : 
+         deliveredOrders.map((order, index) => (
           <div key={index} style={styles.orderCard}>
-
             <div style={styles.imageContainer}>
               <img
                 src={`http://localhost:8000/product_img/${order.item.image_url}`}
@@ -317,52 +252,34 @@ function OrdersPage() {
                 style={styles.image}
               />
             </div>
-
             <div style={styles.details}>
-
-              <h2 style={styles.productName}>
-                {order.item.product_name}
-              </h2>
-
-              <p style={styles.price}>
-                ₹ {order.item.subtotal}
-              </p>
-
+              <h2 style={styles.productName}>{order.item.product_name}</h2>
+              <p style={styles.price}>₹ {order.item.subtotal}</p>
               {(() => {
-
                 const orderedDate = new Date(order.ordered_at);
                 const currentDate = new Date();
-
                 const diffTime = currentDate - orderedDate;
                 const diffDays = diffTime / (1000 * 60 * 60 * 24);
-
                 return diffDays <= 7;
-
               })() && (
-
                 <button
                   style={styles.returnBtn}
                   onClick={() => openReturnForm(order)}
                 >
                   Return / Exchange
                 </button>
-
               )}
-
             </div>
           </div>
         ))}
       </div>
 
-      {/* RETURNED */}
+      {/* RETURNED / CANCELLED */}
       <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>
-          Return / Cancelled Orders
-        </h2>
-
-        {returnedOrders.map((order, index) => (
+        <h2 style={styles.sectionTitle}>Return / Cancelled Orders</h2>
+        {returnedOrders.length === 0 ? <p style={{color: '#aaa'}}>No returned or cancelled orders</p> : 
+         returnedOrders.map((order, index) => (
           <div key={index} style={styles.orderCard}>
-
             <div style={styles.imageContainer}>
               <img
                 src={`http://localhost:8000/product_img/${order.item.image_url}`}
@@ -370,23 +287,18 @@ function OrdersPage() {
                 style={styles.image}
               />
             </div>
-
             <div style={styles.details}>
-
-              <h2 style={styles.productName}>
-                {order.item.product_name}
-              </h2>
-
-              <p style={styles.price}>
-                ₹ {order.item.subtotal}
+              <h2 style={styles.productName}>{order.item.product_name}</h2>
+              <p style={styles.price}>₹ {order.item.subtotal}</p>
+              <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
+                Status: {order.item.return_status || order.order_status}
               </p>
-
-              <p style={{ color: "#ffcc00" }}>
-                {order.item.return_status || order.order_status}
-              </p>
-
-              {renderReturnTimeline()}
-
+              
+              {order.order_status === "CANCELLED" ? (
+                <p style={{color: "#ff4d4d", fontSize: "14px", marginTop: "10px"}}>This order was cancelled.</p>
+              ) : (
+                renderReturnTimeline(order.item.return_status)
+              )}
             </div>
           </div>
         ))}
@@ -395,33 +307,16 @@ function OrdersPage() {
       {/* POPUP */}
       {showReturnForm && (
         <div style={styles.popupOverlay}>
-
           <div style={styles.popup}>
-
-            <h2 style={{ marginBottom: "20px" }}>
-              Return Request
-            </h2>
-
+            <h2 style={{ marginBottom: "20px" }}>Return Request</h2>
             <textarea
               placeholder="Enter reason for return..."
               value={returnReason}
               onChange={(e) => setReturnReason(e.target.value)}
               style={styles.textarea}
             />
-
-            <div style={{
-              display: "flex",
-              gap: "10px",
-              marginTop: "20px"
-            }}>
-
-              <button
-                style={styles.submitBtn}
-                onClick={submitReturn}
-              >
-                Submit
-              </button>
-
+            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <button style={styles.submitBtn} onClick={submitReturn}>Submit</button>
               <button
                 style={styles.closeBtn}
                 onClick={() => {
@@ -432,14 +327,10 @@ function OrdersPage() {
               >
                 Cancel
               </button>
-
             </div>
-
           </div>
-
         </div>
       )}
-
     </div>
   );
 }

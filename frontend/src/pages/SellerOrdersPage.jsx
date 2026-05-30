@@ -10,6 +10,7 @@ import {
   Clock3,
   TrendingUp,
   LogOut,
+  MessageSquare,
 } from "lucide-react";
 
 function SellerOrdersPage() {
@@ -259,6 +260,12 @@ function SellerOrdersPage() {
             onClick={() => window.location.href = "/seller-returns"}>
             <RotateCcw size={20} />
             Returns
+          </button>
+        
+          <button style={styles.menuButton}
+            onClick={() => window.location.href = "/seller-reviews"}>
+            <MessageSquare size={20} />
+            Reviews
           </button>
 
         </div>
